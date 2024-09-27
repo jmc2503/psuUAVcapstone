@@ -1,6 +1,7 @@
 #include "Adafruit_VL53L0X.h"
 
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+int value;
 
 void setup() {
   Serial.begin(115200);
@@ -23,13 +24,16 @@ void setup() {
 void loop() {
   VL53L0X_RangingMeasurementData_t measure;
     
-  Serial.print("Reading a measurement... ");
+  //Serial.print("Reading a measurement... ");
   lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
   if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+    value = measure.RangeMilliMeter;
+   // Serial.print("Distance (mm): "); 
+   Serial.println(value);
   } else {
-    Serial.println(" out of range ");
+    //Serial.println(" out of range ");
+    Serial.println(-1);
   }
     
   delay(100);
