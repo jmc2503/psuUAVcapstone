@@ -1,24 +1,27 @@
 #include <Arduino_LSM6DSOX.h>
 //#include <SD.H>
 
+//FLOW OF USING
+//1. GET GYROSCOPE READY
+//2. PRESS SPACE
+//3. MEASURE FOR 10s
+//  3.1 FIll in buffer
+//  3.2 Look for peaks/zero crossings
+//4. AVERAGE PERIODS MEASURED DURING THAT TIME
+//5. PLUG INTO EQUATION
+
 //GENERAL
 unsigned long lastTime = 0;
 
 //EQUATION CONSTANTS FOR EQ1
-float UAV_WEIGHT = 0; //units
-float PLATFORM_WEIGHT = 0; //units
-float PERIOD_PLATFORM = 0; //units
-float PERIOD_COMBINED = 0; //units
-float DISTANCE_CoG_TO_PLATFORM = 0; //units
-float DISTANCE_CoG_TO_UAV = 0; //units
-
-//EQUATION 2
-float previousGyro = 0;
-float angle = 0;
+float PLATFORM_WEIGHT = 0;
+float PLATFORM_DISTANCE = 0;
 
 //PERIOD DETECTION
 int bufferSize = 5;
 float buffer[5];
+float bufferNorm[5];
+bool wasPositive = false;
 
 void setup() {
   Serial.begin(9600);
@@ -41,42 +44,34 @@ void setup() {
 void loop() {
   float x, y, z;
   unsigned long currTime = millis();
-  float deltaTime = (currentTime - previousTime)  1000.0;
 
   if (IMU.gyroscopeAvailable()) {
     IMU.readGyroscope(x, y, z);
 
     //ANGULAR VELOCITY
-    Serial.print(x);
-    Serial.print('\t');
+    //Serial.println(x);
+    //Serial.print('\t');
     //Serial.print(y);
     //Serial.print('\t');
     //Serial.println(z);
 
-    //ANGLE
-    angle += x * deltaTime;
+    //DETECT PEAK and Filtering
+    float totalSum = shiftArrayRight(buffer, bufferSize, x);
+    float avgSum = totalSum / bufferSize;
+    shiftArrayRight(bufferNorm, bufferSize, avgSum);
+    unsigned long period = FindPeaks(bufferNorm, currTime);
 
-    //ANGULAR ACCELERATION
-    angularAcceleration = (x - previousGyro) / deltaTime;
 
-    //DETECT PEAK
-    shiftArrayRight(buffer, bufferSize, x);
-    unsigned long period = FindPeaks(buffer, currTime);
-    
+
+    //Graph Manipulation
+    Serial.print(avgSum);
     Serial.print('\t');
-    // if(period != 0){
-    //   //Serial.println(period);
-    // }
-
-    Serial.print(angle);
-    Serial.print("\t");
-    Serial.print(angularAcceleration);
-    Serial.println("\t");
-
-    //UPDATE VALUES
-    lastTime = currTime;
-    previousGyro = x;
-
+    Serial.print(3);
+    Serial.print('\t');
+    Serial.print(period);
+    Serial.print('\t');
+    Serial.println(-3);
+    
   }
 }
 
@@ -99,36 +94,20 @@ unsigned long FindPeaks(float buffer[], unsigned long currTime){
 
 }
 
-void shiftArrayRight(float buffer[], int size, float newValue) {
+float shiftArrayRight(float buffer[], int size, float newValue) {
     
+  float totalSum = 0;
+
     for (int i = size - 1; i > 0; i--) {
+        totalSum += buffer[i-1];
         buffer[i] = buffer[i - 1];
     }
     // Place the new value in the leftmost spot
     buffer[0] = newValue;
+    return totalSum + newValue;
 }
 
 float EquationOne(unsigned long period){
   
   return 0.0;
 }
-
-/*
-template<typename... Args>
-void writeToSD(Args... args) {
-  File dataFile = SD.open("data.csv", FILE_WRITE); 
-  if (dataFile) {
-    std::vector<float> values = {static_cast<float>(args)...};
-    for (size_t i = 0; i < values.size(); i++) {
-      dataFile.print(values[i]);
-      if (i < values.size() - 1) {
-        dataFile.print(",");
-      }
-    }
-    dataFile.println();
-    dataFile.close();
-  } else {
-    Serial.println("File not open.");
-  }
-}
-*/

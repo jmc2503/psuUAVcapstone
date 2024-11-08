@@ -32,13 +32,12 @@
 */
 
 #include "HX711.h"
-
 #define DOUT  18
 #define CLK  19
 
 HX711 scale;
 
-float calibration_factor = -7050; //-7050 worked for my 440lb max scale setup
+float calibration_factor = -1000; //-7050 worked for my 440lb max scale setup
 
 void setup() {
   Serial.begin(9600);
