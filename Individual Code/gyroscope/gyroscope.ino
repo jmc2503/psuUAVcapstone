@@ -49,28 +49,28 @@ void loop() {
     IMU.readGyroscope(x, y, z);
 
     //ANGULAR VELOCITY
-    //Serial.println(x);
-    //Serial.print('\t');
-    //Serial.print(y);
-    //Serial.print('\t');
-    //Serial.println(z);
+    // Serial.println(x);
+    // Serial.print('\t');
+    Serial.println(y);
+    // Serial.print('\t');
+    // Serial.println(z);
 
     //DETECT PEAK and Filtering
-    float totalSum = shiftArrayRight(buffer, bufferSize, x);
-    float avgSum = totalSum / bufferSize;
-    shiftArrayRight(bufferNorm, bufferSize, avgSum);
-    unsigned long period = FindPeaks(bufferNorm, currTime);
+    // float totalSum = shiftArrayRight(buffer, bufferSize, x);
+    // float avgSum = totalSum / bufferSize;
+    // shiftArrayRight(bufferNorm, bufferSize, avgSum);
+    // unsigned long period = FindPeaks(bufferNorm, currTime);
 
 
 
-    //Graph Manipulation
-    Serial.print(avgSum);
-    Serial.print('\t');
-    Serial.print(3);
-    Serial.print('\t');
-    Serial.print(period);
-    Serial.print('\t');
-    Serial.println(-3);
+    // //Graph Manipulation
+    // Serial.print(avgSum);
+    // Serial.print('\t');
+    // Serial.print(3);
+    // Serial.print('\t');
+    // Serial.print(period);
+    // Serial.print('\t');
+    // Serial.println(-3);
     
   }
 }
