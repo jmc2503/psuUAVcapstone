@@ -29,6 +29,12 @@ String z_COG = ""; // Variable to store user input for z_COG
 String Final_x_COG = ""; // Variable to store saved Final value for x_COG
 String Final_z_COG = ""; // Variable to store saved Final value for z_COG
 bool decimalEntered = false; // Flag to check if a decimal has been entered
+bool x_oscillated = false; // Track if X oscillation is done
+bool y_oscillated = false; // Track if Y oscillation is done
+bool z_oscillated = false; // Track if Z oscillation is done
+String MMI_final_xy = ""; // Holds final calculated value for Inertia XY
+String MMI_final_yz = ""; // Holds final calculated value for Inertia YZ
+
 
 void setup() {
   lcd.init();         // Initialize the LCD
@@ -69,8 +75,18 @@ void loop() {
     else if (menuState == 7) {
       handleInertiaYZScreen(key); // Handle Inertia YZ screen key presses
     }
+    else if (menuState == 8) {
+      handleInertiaXOscillate(key); // Handle X oscillation key presses
+    }
+    else if (menuState == 9) {
+      handleInertiaYOscillate(key); // Handle Y oscillation key presses
+    }
+    else if (menuState == 10) {
+      handleInertiaZOscillate(key); // Handle Z oscillation key presses
+    }
   }
 }
+
 
 void handleMainMenu(char key) {
   if (key == '1') {
@@ -238,12 +254,17 @@ void handleInertiaXYScreen(char key) {
   if (key == '#') {
     displayInertiaMenu(); // Go back to inertia menu
     menuState = 2;
+  } else if (key == '1') { // Handle X oscillation
+    inertia_x_oscillate(); // Go to the X oscillation screen
+    menuState = 8; // Update menu state for X oscillation
+  } else if (key == '2') { // Handle Y oscillation
+    inertia_y_oscillate(); // Go to the Y oscillation screen
+    menuState = 9; // Update menu state for Y oscillation
   } else {
     lcd.clear();
-    lcd.print("Selected XY Option: ");
-    lcd.print(key);
+    lcd.print("Invalid Option");
     delay(1000);
-    inertia_xy_screen(); // Redisplay Inertia XY screen
+    inertia_xy_screen(); // Redisplay the Inertia XY screen
   }
 }
 
@@ -251,12 +272,95 @@ void handleInertiaYZScreen(char key) {
   if (key == '#') {
     displayInertiaMenu(); // Go back to inertia menu
     menuState = 2;
+  } else if (key == '1') { // Handle Y oscillation
+    inertia_y_oscillate(); // Go to the Y oscillation screen
+    menuState = 9; // Update menu state for Y oscillation
+  } else if (key == '2') { // Handle Z oscillation
+    inertia_z_oscillate(); // Go to the Z oscillation screen
+    menuState = 10; // Update menu state for Z oscillation
   } else {
     lcd.clear();
-    lcd.print("Selected YZ Option: ");
-    lcd.print(key);
+    lcd.print("Invalid Option");
     delay(1000);
-    inertia_yz_screen(); // Redisplay Inertia YZ screen
+    inertia_yz_screen(); // Redisplay the Inertia YZ screen
+  }
+}
+
+void handleInertiaXOscillate(char key) {
+  if (key == '#') {
+    inertia_xy_screen(); // Go back to Inertia XY screen
+    menuState = 6;
+  } else if (key == '1') { // Save the X oscillation
+    x_oscillated = true;
+    lcd.clear();
+    lcd.print("X Oscillation Saved");
+    delay(1000);
+    if (!y_oscillated) { // Check if Y oscillation is pending
+      inertia_y_oscillate(); // Redirect to Y oscillate
+      menuState = 8;
+    } else {
+      MMI_final_xy = "123.45"; // Replace with actual calculation
+      displayResultsScreen("XY", MMI_final_xy, MMI_final_yz); // Show results for Inertia XY
+      menuState = 10; // Transition to results screen state
+    }
+  }
+}
+
+void handleInertiaYOscillate(char key) {
+  if (key == '#') {
+    inertia_xy_screen(); // Go back to Inertia XY screen
+    menuState = 6;
+  } else if (key == '1') { // Save the Y oscillation
+    y_oscillated = true;
+    lcd.clear();
+    lcd.print("Y Oscillation Saved");
+    delay(1000);
+    if (!x_oscillated) { // Check if X oscillation is pending
+      inertia_x_oscillate(); // Redirect to X oscillate
+      menuState = 8;
+    } else {
+      MMI_final_xy = "123.45"; // Replace with actual calculation
+      displayResultsScreen("XY", MMI_final_xy, MMI_final_yz); // Show results for Inertia XY
+      menuState = 10; // Transition to results screen state
+    }
+  }
+}
+
+void handleInertiaZOscillate(char key) {
+  if (key == '#') {
+    inertia_yz_screen(); // Go back to Inertia YZ screen
+    menuState = 7;
+  } else if (key == '1') { // Save the Z oscillation
+    z_oscillated = true;
+    lcd.clear();
+    lcd.print("Z Oscillation Saved");
+    delay(1000);
+    if (!y_oscillated) { // Check if Y oscillation is pending
+      inertia_y_oscillate(); // Redirect to Y oscillate
+      menuState = 8;
+    } else {
+      MMI_final_yz = "678.90"; // Replace with actual calculation
+      displayResultsScreen("YZ", MMI_final_xy, MMI_final_yz); // Show results for Inertia YZ
+      menuState = 11; // Transition to results screen state
+    }
+  }
+}
+
+void handleResultsScreen(char key, String mode) {
+  if (key == '#') {
+    if (mode == "XY") {
+      inertia_xy_screen(); // Return to Inertia XY screen
+      menuState = 6;
+    } else if (mode == "YZ") {
+      inertia_yz_screen(); // Return to Inertia YZ screen
+      menuState = 7;
+    }
+  } else if (key == '*') {
+    lcd.clear();
+    lcd.print("Results Saved");
+    delay(1000);
+    displayMainMenu(); // Go back to the main menu after saving results
+    menuState = 0;
   }
 }
 
@@ -385,3 +489,63 @@ void inertia_yz_screen() {
   lcd.setCursor(0, 3);
   lcd.print("Press # to go back");
 }
+
+void inertia_x_oscillate() {
+  lcd.clear();
+  lcd.setCursor(3, 0);
+  lcd.print("Inertia in X");
+  lcd.setCursor(0, 1);
+  lcd.print("Oscillate X");
+  lcd.setCursor(0, 2);
+  lcd.print("Press 1 to save");
+  lcd.setCursor(0, 3);
+  lcd.print("Press # to go back");
+}
+void inertia_y_oscillate() {
+  lcd.clear();
+  lcd.setCursor(3, 0);
+  lcd.print("Inertia in Y");
+  lcd.setCursor(0, 1);
+  lcd.print("Oscillate Y");
+  lcd.setCursor(0, 2);
+  lcd.print("Press 1 to continue");
+  lcd.setCursor(0, 3);
+  lcd.print("Press # to go back");
+}
+void inertia_z_oscillate() {
+  lcd.clear();
+  lcd.setCursor(3, 0);
+  lcd.print("Inertia in Z");
+  lcd.setCursor(0, 1);
+  lcd.print("Oscillate Z");
+  lcd.setCursor(0, 2);
+  lcd.print("Press 1 to continue");
+  lcd.setCursor(0, 3);
+  lcd.print("Press # to go back");
+}
+
+
+void displayResultsScreen(String mode, String MMI_final_xy, String MMI_final_yz) {
+  lcd.clear();
+  lcd.setCursor(4, 0);
+  lcd.print("Inertia");
+
+  lcd.setCursor(0, 1);
+  if (mode == "XY") {
+    lcd.print("Output (XY):");
+    lcd.setCursor(0, 2);
+    lcd.print(MMI_final_xy); // Print the result value
+    lcd.setCursor(13, 2);    // Align "lb in^2" to the right
+    lcd.print("lb in^2");
+  } else if (mode == "YZ") {
+    lcd.print("Output (YZ):");
+    lcd.setCursor(0, 2);
+    lcd.print(MMI_final_yz); // Print the result value
+    lcd.setCursor(13, 2);    // Align "lb in^2" to the right
+    lcd.print("lb in^2");
+  }
+
+  lcd.setCursor(0, 3);
+  lcd.print("#:go back *:save");
+}
+
