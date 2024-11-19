@@ -38,8 +38,6 @@ bool z_oscillated = false; // Track if Z oscillation is done
 String MMI_final_xy = ""; // Holds final calculated value for Inertia XY
 String MMI_final_yz = ""; // Holds final calculated value for Inertia YZ
 
-float xPeriod = 0;
-
 //************INERTIA VARIABLES**************
 
 const int duration = 10; // How long the test runs for
@@ -53,6 +51,10 @@ int sample_index = 0;
 bool isRecording = false;
 bool oscillationDone = false;
 unsigned long startTime;
+
+float xPeriod = 0;
+float yPeriod = 0;
+float zPeriod = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -112,10 +114,22 @@ void loop() {
     }
   }
 
-  //Inertia Loop
-  if(menuState == 8){
+  //Inertia Loops
+  if(menuState == 8){ //X INERTIA
     if(!oscillationDone){
-      PerformOscillation();
+      PerformOscillation(1);
+    }
+  }
+
+  if(menuState == 9){ //Y INERTIA
+    if(!oscillationDone){
+      PerformOscillation(2);
+    }
+  }
+
+  if(menuState == 10){ //Z INERTIA
+    if(!oscillationDone){
+      PerformOscillation(3);
     }
   }
 
@@ -337,6 +351,7 @@ void handleInertiaXOscillate(char key) {
       displayResultsScreen("XY", MMI_final_xy, MMI_final_yz); // Show results for Inertia XY
       menuState = 10; // Transition to results screen state
     }
+    oscillationDone = false;
   }
 }
 
@@ -357,6 +372,7 @@ void handleInertiaYOscillate(char key) {
       displayResultsScreen("XY", MMI_final_xy, MMI_final_yz); // Show results for Inertia XY
       menuState = 10; // Transition to results screen state
     }
+    oscillationDone = false;
   }
 }
 
@@ -377,6 +393,7 @@ void handleInertiaZOscillate(char key) {
       displayResultsScreen("YZ", MMI_final_xy, MMI_final_yz); // Show results for Inertia YZ
       menuState = 11; // Transition to results screen state
     }
+    oscillationDone = false;
   }
 }
 
@@ -547,7 +564,14 @@ void inertia_y_oscillate() {
   lcd.setCursor(3, 0);
   lcd.print("Inertia in Y");
   lcd.setCursor(0, 1);
-  lcd.print("Oscillate Y");
+  
+  if(yPeriod > 0){
+    lcd.print(yPeriod);
+  }
+  else{
+    lcd.print("Oscillate Y");
+  }
+
   lcd.setCursor(0, 2);
   lcd.print("Press 1 to continue");
   lcd.setCursor(0, 3);
@@ -558,7 +582,14 @@ void inertia_z_oscillate() {
   lcd.setCursor(3, 0);
   lcd.print("Inertia in Z");
   lcd.setCursor(0, 1);
-  lcd.print("Oscillate Z");
+  
+  if(zPeriod > 0){
+    lcd.print(zPeriod);
+  }
+  else{
+    lcd.print("Oscillate Z");
+  }
+
   lcd.setCursor(0, 2);
   lcd.print("Press 1 to continue");
   lcd.setCursor(0, 3);
@@ -590,37 +621,72 @@ void displayResultsScreen(String mode, String MMI_final_xy, String MMI_final_yz)
   lcd.print("#:go back *:save");
 }
 
-bool PerformOscillation(){
+//Calculate Period
+//int direction:
+//  1: x-axis oscillation
+//  2: y-axis oscillation
+//  3: z-axis oscillation
+bool PerformOscillation(int direction){
+  //Initialize gyroscope axis readings
   float x, y, z;
 
+  //Initialize Reading Loop
   if (!isRecording) {
-        Serial.println("Recording started!!!");
-        isRecording = true;
-        startTime = millis(); // Record the starting time
-        sample_index = 0; // Reset index for new recording
+    Serial.println("Recording started!!!");
+    isRecording = true;
+    startTime = millis(); // Record the starting time
+    sample_index = 0; // Reset index for new recording
   }
 
+  //Data Collection and Period Calculation
   if(isRecording){
-    if(millis() - startTime < duration * 1000){
-      IMU.readGyroscope(x, y, z);
-      sensorData[sample_index] = y;
+    if(millis() - startTime < duration * 1000){ //Collect data from 
+      IMU.readGyroscope(x, y, z); //get values from readGyroscope
+
+      float data = 0;
+      if(direction == 1){
+        data = y;
+      }
+      else if(direction == 2){
+        data = x;
+      }
+      else if(direction == 3){
+        data = y;
+      }
+
+      //Save data and time for period calculation
+      sensorData[sample_index] = data;
       timeData[sample_index] = millis();
       sample_index++;
+
+      //Fix sample rate
       delay(1000/sampleRate);
     }
     else{
-      isRecording = false;
+      isRecording = false; //finish oscillation
 
+      //Send data through averaging
       float filtered[arraySize];
       for (int i = 0; i < arraySize; i++) {
         filtered[i] = sensorData[i];
       }
-
       moving_avg_filter(sensorData, 5, filtered);
 
-      xPeriod = get_period(filtered);
-      inertia_x_oscillate();
+      //Get period and and print to screen
+      if(direction == 1){
+        xPeriod = get_period(filtered);
+        inertia_x_oscillate();
+      }
+      else if(direction == 2){
+        yPeriod = get_period(filtered);
+        inertia_y_oscillate();
+      }
+      else if(direction == 3){
+        zPeriod = get_period(filtered);
+        inertia_z_oscillate();
+      }
       
+      //Debug Prints
       Serial.print("ok here is the period: ");
       Serial.println(xPeriod);
       Serial.println("\n hoorary!!!");
@@ -630,6 +696,7 @@ bool PerformOscillation(){
     }
   }
 
+  //Oscillation is not done
   return false;
 }
 
@@ -696,4 +763,8 @@ void moving_avg_filter(float values[], int size, float filtered[]){
     sum = sum - values[i - size - 1] + values[i + size];
     filtered[i] = sum / windowSize;
   }
+}
+
+float CalculateMMI(){
+  return 0;
 }
