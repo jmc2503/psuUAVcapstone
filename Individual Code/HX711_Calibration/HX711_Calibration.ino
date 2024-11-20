@@ -32,22 +32,36 @@
 */
 
 #include "HX711.h"
-#define DOUT  18
-#define CLK  19
+#define DOUT1 18
+#define CLK1 19
 
-HX711 scale;
+#define DOUT2 17
+#define CLK2 16
+
+#define DOUT3 25
+#define CLK3 24
+
+HX711 scale1;
+HX711 scale2;
+HX711 scale3;
 
 
 //for load cell 1
-float calibration_factor = 0; //-7050 worked for my 440lb max scale setup
-//465300 with 9lbs calibration
-//367000 with 25lbs calibration
+float calibration_factor1 = 472100.00;
+//thing1: 471500.00
+//thing1 better: 472100.00
+
 
 //for load cell 2
-//334400 with 25lbs calibration
+float calibration_factor2 = 494800.00;
+//thing2: 490800.00
+//thing2 better: 494800.00
 
 //for load cell 3
-//337100 with 25lbs calibration
+float calibration_factor3 = 487700.00;
+//thing3: 497200.00
+//thing3 better: 487700.00 
+
 
 void setup() {
   Serial.begin(9600);
@@ -57,32 +71,71 @@ void setup() {
   Serial.println("Press + or a to increase calibration factor");
   Serial.println("Press - or z to decrease calibration factor");
 
-  scale.begin(DOUT, CLK);
-  scale.set_scale();
-  scale.tare(); //Reset the scale to 0
+  scale1.begin(DOUT1, CLK1);
+  scale1.set_scale();
+  scale1.tare(); //Reset the scale to 0
 
-  long zero_factor = scale.read_average(); //Get a baseline reading
+  scale2.begin(DOUT2, CLK2);
+  scale2.set_scale();
+  scale2.tare(); //Reset the scale to 0
+
+  scale3.begin(DOUT3, CLK3);
+  scale3.set_scale();
+  scale3.tare(); //Reset the scale to 0
+
+  long zero_factor1 = scale1.read_average(); //Get a baseline reading
+  long zero_factor2 = scale2.read_average(); //Get a baseline reading
+  long zero_factor3 = scale3.read_average(); //Get a baseline reading
   Serial.print("Zero factor: "); //This can be used to remove the need to tare the scale. Useful in permanent scale projects.
-  Serial.println(zero_factor);
+  Serial.println(zero_factor1);
+  Serial.println(zero_factor2);
+  Serial.println(zero_factor3);
+
 }
 
 void loop() {
 
-  scale.set_scale(calibration_factor); //Adjust to this calibration factor
+  scale1.set_scale(calibration_factor1); //Adjust to this calibration factor
+  scale2.set_scale(calibration_factor2); //Adjust to this calibration factor
+  scale3.set_scale(calibration_factor3); //Adjust to this calibration factor
+
+  float scale1_reading = scale1.get_units();
+  float scale2_reading = scale2.get_units();
+  float scale3_reading = scale3.get_units();
+  float sum = scale1_reading + scale2_reading + scale3_reading;
+
 
   Serial.print("Reading: ");
-  Serial.print(scale.get_units(), 1);
+  Serial.print(scale1_reading, 5);
+  Serial.print(", ");
+  Serial.print(scale2_reading, 5);
+  Serial.print(", ");
+  Serial.print(scale3_reading, 5);
+  Serial.print(", ");
+  Serial.print(sum);
   Serial.print(" lbs"); //Change this to kg and re-adjust the calibration factor if you follow SI units like a sane person
-  Serial.print(" calibration_factor: ");
-  Serial.print(calibration_factor);
+  Serial.print(" calibration_factors: ");
+  Serial.print(calibration_factor1);
+  Serial.print(", ");
+  Serial.print(calibration_factor2);
+  Serial.print(", ");
+  Serial.print(calibration_factor3);
   Serial.println();
 
   if(Serial.available())
   {
     char temp = Serial.read();
-    if(temp == '+' || temp == 'a')
-      calibration_factor += 100;
-    else if(temp == '-' || temp == 'z')
-      calibration_factor -= 100;
+    if(temp == '1')
+      calibration_factor1 += 100;
+    else if(temp == '!')
+      calibration_factor1 -= 100;
+    else if(temp == '2')
+      calibration_factor2 += 100;
+    else if(temp == '@')
+      calibration_factor2 -= 100;
+    else if(temp == '3')
+      calibration_factor3 += 100;
+    else if(temp == '#')
+      calibration_factor3 -= 100;
   }
 }

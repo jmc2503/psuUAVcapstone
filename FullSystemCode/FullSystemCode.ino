@@ -3,6 +3,7 @@
 #include <Keypad.h>
 #include <string.h> // For strcpy and strncpy
 #include <Arduino_LSM6DSOX.h>
+#include <HX711.h>
 
 //****************SCREEN VARIABLES*******************
 
@@ -38,6 +39,16 @@ bool z_oscillated = false; // Track if Z oscillation is done
 String MMI_final_xy = ""; // Holds final calculated value for Inertia XY
 String MMI_final_yz = ""; // Holds final calculated value for Inertia YZ
 
+//************CENTER OF GRAVITY VARIABLES***********
+HX711 scale1;
+HX711 scale2;
+HX711 scale3;
+
+float calibration_factor1 = 472100.00;
+float calibration_factor2 = 494800.00;
+float calibration_factor3 = 487700.00;
+
+
 //************INERTIA VARIABLES**************
 
 const int duration = 10; // How long the test runs for
@@ -59,11 +70,33 @@ float zPeriod = 0;
 void setup() {
   Serial.begin(9600);
 
+  //Initialize Gyroscope
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
 
     while (1);
   }
+
+  //Initialize Load Cell
+  scale1.begin(DOUT1, CLK1);
+  scale1.set_scale();
+  scale1.tare(); //Reset the scale to 0
+
+  scale2.begin(DOUT2, CLK2);
+  scale2.set_scale();
+  scale2.tare(); //Reset the scale to 0
+
+  scale3.begin(DOUT3, CLK3);
+  scale3.set_scale();
+  scale3.tare(); //Reset the scale to 0
+
+  long zero_factor1 = scale1.read_average(); //Get a baseline reading
+  long zero_factor2 = scale2.read_average(); //Get a baseline reading
+  long zero_factor3 = scale3.read_average(); //Get a baseline reading
+  Serial.print("Zero factor: "); //This can be used to remove the need to tare the scale. Useful in permanent scale projects.
+  Serial.println(zero_factor1);
+  Serial.println(zero_factor2);
+  Serial.println(zero_factor3);
   
   lcd.init();         // Initialize the LCD
   lcd.backlight();    // Turn on the backlight
@@ -337,6 +370,7 @@ void handleInertiaYZScreen(char key) {
 void handleInertiaXOscillate(char key) {
   if (key == '#') {
     inertia_xy_screen(); // Go back to Inertia XY screen
+    oscillationDone = false;
     menuState = 6;
   } else if (key == '1') { // Save the X oscillation
     x_oscillated = true;
@@ -645,7 +679,7 @@ bool PerformOscillation(int direction){
 
       float data = 0;
       if(direction == 1){
-        data = y;
+        data = x;
       }
       else if(direction == 2){
         data = x;
@@ -768,3 +802,4 @@ void moving_avg_filter(float values[], int size, float filtered[]){
 float CalculateMMI(){
   return 0;
 }
+
