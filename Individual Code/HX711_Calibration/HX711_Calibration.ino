@@ -45,22 +45,35 @@ HX711 scale1;
 HX711 scale2;
 HX711 scale3;
 
+//expected: 25.7, actual: 25.38
+//expected: 35.7, actual: 35.27
+//expected: 60.7, actual:53.52 locked out
+
 
 //for load cell 1
-float calibration_factor1 = 472100.00;
+float calibration_factor1 = 245100.00;
 //thing1: 471500.00
 //thing1 better: 472100.00
 
+//GAIN 64
+//245100
+
 
 //for load cell 2
-float calibration_factor2 = 494800.00;
+float calibration_factor2 = 228800.00;
 //thing2: 490800.00
 //thing2 better: 494800.00
 
+//GAIN 64
+//228800
+
 //for load cell 3
-float calibration_factor3 = 487700.00;
+float calibration_factor3 = 254700.00;
 //thing3: 497200.00
 //thing3 better: 487700.00 
+
+//GAIN 64
+//254700
 
 
 void setup() {
@@ -72,14 +85,17 @@ void setup() {
   Serial.println("Press - or z to decrease calibration factor");
 
   scale1.begin(DOUT1, CLK1);
+  scale1.set_gain(64);
   scale1.set_scale();
   scale1.tare(); //Reset the scale to 0
 
   scale2.begin(DOUT2, CLK2);
+  scale2.set_gain(64);
   scale2.set_scale();
   scale2.tare(); //Reset the scale to 0
 
   scale3.begin(DOUT3, CLK3);
+  scale3.set_gain(64);
   scale3.set_scale();
   scale3.tare(); //Reset the scale to 0
 
@@ -126,16 +142,16 @@ void loop() {
   {
     char temp = Serial.read();
     if(temp == '1')
-      calibration_factor1 += 100;
+      calibration_factor1 += 1000;
     else if(temp == '!')
-      calibration_factor1 -= 100;
+      calibration_factor1 -= 1000;
     else if(temp == '2')
-      calibration_factor2 += 100;
+      calibration_factor2 += 1000;
     else if(temp == '@')
-      calibration_factor2 -= 100;
+      calibration_factor2 -= 1000;
     else if(temp == '3')
-      calibration_factor3 += 100;
+      calibration_factor3 += 1000;
     else if(temp == '#')
-      calibration_factor3 -= 100;
+      calibration_factor3 -= 1000;
   }
 }

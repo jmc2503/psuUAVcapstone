@@ -40,6 +40,15 @@ String MMI_final_xy = ""; // Holds final calculated value for Inertia XY
 String MMI_final_yz = ""; // Holds final calculated value for Inertia YZ
 
 //************CENTER OF GRAVITY VARIABLES***********
+#define DOUT1 18
+#define CLK1 19
+
+#define DOUT2 17
+#define CLK2 16
+
+#define DOUT3 25
+#define CLK3 24
+
 HX711 scale1;
 HX711 scale2;
 HX711 scale3;
@@ -47,6 +56,16 @@ HX711 scale3;
 float calibration_factor1 = 472100.00;
 float calibration_factor2 = 494800.00;
 float calibration_factor3 = 487700.00;
+
+float platformFrontWeight = 1.330; //brown, scale3
+float platformLeftWeight = 2.345; //brown left, scale 2
+float platformRightWeight = 2.221; //green, right scale 1
+
+float frontScalePos[2] = {12.125, 7.5};
+float leftScalePos[2] = {22.375, 0.5};
+float rightScalePos[2] = {22.375, 13.5};
+float centerOfPlatform[2] = {20.074, 6.976};
+float nosePosX = 0;
 
 
 //************INERTIA VARIABLES**************
@@ -79,16 +98,22 @@ void setup() {
 
   //Initialize Load Cell
   scale1.begin(DOUT1, CLK1);
+  scale1.set_gain(64);
   scale1.set_scale();
   scale1.tare(); //Reset the scale to 0
+  scale1.set_scale(calibration_factor1);
 
   scale2.begin(DOUT2, CLK2);
+  scale2.set_gain(64);
   scale2.set_scale();
   scale2.tare(); //Reset the scale to 0
+  scale2.set_scale(calibration_factor2);
 
   scale3.begin(DOUT3, CLK3);
+  scale3.set_gain(64);
   scale3.set_scale();
   scale3.tare(); //Reset the scale to 0
+  scale3.set_scale(calibration_factor3);
 
   long zero_factor1 = scale1.read_average(); //Get a baseline reading
   long zero_factor2 = scale2.read_average(); //Get a baseline reading
@@ -145,6 +170,12 @@ void loop() {
     else if (menuState == 10) {
       handleInertiaZOscillate(key); // Handle Z oscillation key presses
     }
+    else if(menuState == 11){
+      handleLiveUpdateX(key);
+    }
+    else if(menuState == 12){
+      handleLiveUpdateZ(key);
+    }
   }
 
   //Inertia Loops
@@ -165,6 +196,18 @@ void loop() {
       PerformOscillation(3);
     }
   }
+
+  //if(menuState == 11){
+  //  float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 1);
+  //  live_cg_update(xCG_Diff, 1);
+  //  delay(500);
+  //}
+
+  //if(menuState == 12){
+  //  float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 2);
+  //  live_cg_update(zCG_Diff, 2);
+  //  delay(500);
+  //}
 
 }
 
@@ -241,8 +284,9 @@ void handleCoGScreen2Menu(char key) {
       lcd.clear();
       lcd.print("Value saved");
       delay(1000);
-      cog_screen_3_xy(); // Go to the next screen for further actions
-      menuState = 4; // Move to the next menu state
+      float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 2);
+      live_cg_update(xCG_Diff, 1); // Go to the next screen for further actions
+      menuState = 11; // Move to the next menu state
     }
   } else if (isdigit(key)) { // Capture numeric input
     if (x_COG.length() < 14) { // Limit input length to fit on the display
@@ -277,8 +321,9 @@ void handleCoGScreen2Z(char key) {
       lcd.clear();
       lcd.print("Value saved");
       delay(1000);
-      cog_screen_3_zy(); // Go to the next screen
-      menuState = 4; // Move to the next menu state
+      float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 2);
+      live_cg_update(zCG_Diff,2); // Go to the next screen
+      menuState = 12; // Move to the next menu state
     }
   } else if (isdigit(key)) { // Capture numeric input
     if (z_COG.length() < 14) { // Limit input length to fit on the display
@@ -328,6 +373,30 @@ void handleCoGScreen3ZY(char key) {
     lcd.print("Value saved");
     delay(1000);
     cog_screen_3_zy(); // Stay on the same screen
+  }
+}
+
+void handleLiveUpdateX(char key){
+  if(key=='#'){
+    cog_screen_2xy(); // Go back to previous screen
+    menuState = 3;
+  }
+  else if(key=='1'){
+    //Save value
+    cog_screen_3_xy();
+    menuState = 4;
+  }
+}
+
+void handleLiveUpdateZ(char key){
+  if(key=='#'){
+    cog_screen_2zy(); // Go back to previous screen
+    menuState = 3;
+  }
+  else if(key=='1'){
+    //Save value
+    cog_screen_3_zy();
+    menuState = 4;
   }
 }
 
@@ -549,6 +618,28 @@ void cog_screen_3_zy() {
   }
   lcd.setCursor(0, 3);
   lcd.print("Press # to go back");
+}
+
+//axis:
+//1 -> x
+//2 -> z
+void live_cg_update(float differenceVal, int axis){
+  lcd.clear();
+  lcd.setCursor(1,0);
+  lcd.print("Center of Gravity");
+  lcd.setCursor(0,1);
+  if(axis == 1){
+    lcd.print("move x: ");
+  }
+  else{
+    lcd.print("move: z ");
+  }
+  lcd.print(differenceVal,2);
+  lcd.setCursor(0, 2);
+  lcd.print("Press 1 when done");
+  lcd.setCursor(0,3);
+  lcd.print("Press # to go back");
+
 }
 
 void inertia_xy_screen() {
@@ -803,12 +894,7 @@ float CalculateMMI(){
   return 0;
 }
 
-float CalculateCG(float frontWeight, float leftWeight, float rightWeight){
-    int nosePos[2] = {14,7};
-    int frontScalePos[2] = {14,7};
-    int leftScalePos[2] = {26,0};
-    int rightScalePos[2] = {26,14};
-    int centerOfPlatform[2] = {20,7}; //needs to be tested/verified it's symmetrical
+float CalculateCG(float frontWeight, float leftWeight, float rightWeight, int dir){
 
     //total weight of the model - total weight of the platform : calibration
     float modelWeight = (frontWeight+leftWeight+rightWeight)-(platformFrontWeight+platformLeftWeight+platformRightWeight);
@@ -816,13 +902,16 @@ float CalculateCG(float frontWeight, float leftWeight, float rightWeight){
     //xcg = (50*frontScalePos[0]+leftScalePos[0]*50+rightScalePos[0]*50)/(150)
     float xcg = ((frontWeight-platformFrontWeight)*frontScalePos[0]+(leftWeight-platformLeftWeight)*leftScalePos[0]+(rightWeight-platformRightWeight)*rightScalePos[0])/(modelWeight);
     //ycg = (50*frontScalePos[1]+leftScalePos[1]*50+rightScalePos[1]*50)/(150)
-    float ycg = ((frontWeight-platformFrontWeight)*frontScalePos[1]+(leftWeight-platformLeftWeight)*leftScalePos[1]+(rightWeight-platformRightWeight)*rightScalePos[1])/(modelWeight);
+    //float ycg = ((frontWeight-platformFrontWeight)*frontScalePos[1]+(leftWeight-platformLeftWeight)*leftScalePos[1]+(rightWeight-platformRightWeight)*rightScalePos[1])/(modelWeight);
     
     
     //adjustment values of where the model needs to be
     //MAYBE make these output parameters
-    float adjustmentX = xcg - centerOfPlatform[0];
-    float newNoseX = nosePos[0] - adjustmentX;
-    float adjustmentY = ycg - centerOfPlatform[1];
-    float newNoseY = nosePos[1] - adjustmentY;
+    //float adjustmentX = xcg - centerOfPlatform[0];
+    //float newNoseX = nosePos[0] - adjustmentX;
+    //float adjustmentY = ycg - centerOfPlatform[1];
+    //float newNoseY = nosePos[1] - adjustmentY;
+
+    return xcg - centerOfPlatform[0];
+
 }
