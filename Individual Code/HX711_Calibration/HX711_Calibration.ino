@@ -75,6 +75,11 @@ float calibration_factor3 = 254700.00;
 //GAIN 64
 //254700
 
+//cell 1: 2.022
+//cell2: 2.37
+//cell3: 2.10
+//total: 6.5
+
 
 void setup() {
   Serial.begin(9600);
