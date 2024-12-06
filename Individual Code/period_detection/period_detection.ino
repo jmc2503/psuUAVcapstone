@@ -1,4 +1,4 @@
-#include <Arduino_LSM6DSOX.h>
+#include <Adafruit_LSM6DSOX.h>
 
 const int duration = 10;
 const int sampleRate = 100;
@@ -11,18 +11,83 @@ int sample_index = 0;
 bool isRecording = false;
 unsigned long startTime;
 
+Adafruit_LSM6DSOX sox;
+
 void setup() {
   Serial.begin(9600);
 
-  if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
 
-    while (1);
+  if (!sox.begin_I2C()) {
+    Serial.println("Failed to find LSM6DSOX chip");
+    while (1) {
+      delay(10);
+    }
   }
 
-  Serial.print("Gyroscope sample rate = ");
-  Serial.print(IMU.gyroscopeSampleRate());
-  Serial.println(" Hz");
+  Serial.println("LSM6DSOX Found!");
+
+  // sox.setGyroRange(LSM6DS_GYRO_RANGE_250_DPS );
+  Serial.print("Gyro range set to: ");
+  switch (sox.getGyroRange()) {
+  case LSM6DS_GYRO_RANGE_125_DPS:
+    Serial.println("125 degrees/s");
+    break;
+  case LSM6DS_GYRO_RANGE_250_DPS:
+    Serial.println("250 degrees/s");
+    break;
+  case LSM6DS_GYRO_RANGE_500_DPS:
+    Serial.println("500 degrees/s");
+    break;
+  case LSM6DS_GYRO_RANGE_1000_DPS:
+    Serial.println("1000 degrees/s");
+    break;
+  case LSM6DS_GYRO_RANGE_2000_DPS:
+    Serial.println("2000 degrees/s");
+    break;
+  case ISM330DHCX_GYRO_RANGE_4000_DPS:
+    break; // unsupported range for the DSOX
+  }
+
+
+  sox.setGyroDataRate(LSM6DS_RATE_3_33K_HZ);
+  Serial.print("Gyro data rate set to: ");
+  switch (sox.getGyroDataRate()) {
+  case LSM6DS_RATE_SHUTDOWN:
+    Serial.println("0 Hz");
+    break;
+  case LSM6DS_RATE_12_5_HZ:
+    Serial.println("12.5 Hz");
+    break;
+  case LSM6DS_RATE_26_HZ:
+    Serial.println("26 Hz");
+    break;
+  case LSM6DS_RATE_52_HZ:
+    Serial.println("52 Hz");
+    break;
+  case LSM6DS_RATE_104_HZ:
+    Serial.println("104 Hz");
+    break;
+  case LSM6DS_RATE_208_HZ:
+    Serial.println("208 Hz");
+    break;
+  case LSM6DS_RATE_416_HZ:
+    Serial.println("416 Hz");
+    break;
+  case LSM6DS_RATE_833_HZ:
+    Serial.println("833 Hz");
+    break;
+  case LSM6DS_RATE_1_66K_HZ:
+    Serial.println("1.66 KHz");
+    break;
+  case LSM6DS_RATE_3_33K_HZ:
+    Serial.println("3.33 KHz");
+    break;
+  case LSM6DS_RATE_6_66K_HZ:
+    Serial.println("6.66 KHz");
+    break;
+  }
+  
+  delay(4000);
 
   Serial.println(arraySize);
 
@@ -31,7 +96,9 @@ void setup() {
 
 void loop() {
 
-  float x, y, z;
+  sensors_event_t gyro;
+  sensors_event_t accel;
+  sensors_event_t temp;
 
   if (Serial.available() > 0) {
     char input = Serial.read();
@@ -45,8 +112,8 @@ void loop() {
 
   if(isRecording){
     if(millis() - startTime < duration * 1000){
-      IMU.readGyroscope(x, y, z);
-      sensorData[sample_index] = y;
+      sox.getEvent(&accel, &gyro, &temp);
+      sensorData[sample_index] = gyro.gyro.y;
       timeData[sample_index] = millis();
       sample_index++;
       delay(1000/sampleRate);
@@ -62,9 +129,8 @@ void loop() {
       moving_avg_filter(sensorData, 5, filtered);
 
       float period = get_period(filtered);
-      Serial.print("ok here is the period: ");
+      Serial.print("Period: ");
       Serial.println(period);
-      Serial.println("\n hoorary!!!");
     }
   }
 }

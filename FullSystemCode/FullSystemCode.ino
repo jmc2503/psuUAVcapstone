@@ -54,9 +54,9 @@ float calibration_factor1 = 245100.00;
 float calibration_factor2 = 228800.00;
 float calibration_factor3 = 254700.00;
 
-float platformFrontWeight = 1.330; //brown, scale3 ()
-float platformLeftWeight = 2.345; //brown left, scale 2 (23 9/16, )
-float platformRightWeight = 2.221; //green, right scale 1 (23 9/16, )
+float platformFrontWeight = 2.290; //brown, scale3 ()
+float platformLeftWeight = 2.540; //brown left, scale 2 (23 9/16, )
+float platformRightWeight = 2.458; //green, right scale 1 (23 9/16, )
 
 float frontScalePos[2] = {12.5, 7.5};
 float leftScalePos[2] = {23.5625, 0.5};
@@ -82,6 +82,12 @@ unsigned long startTime;
 float xPeriod = 0;
 float yPeriod = 0;
 float zPeriod = 0;
+
+//**************INERTIA EQUATION**************
+float platform_period = 0;
+float platform_cog_distance = 0;
+float uav_cog_distance_x = 0;
+float uav_cog_distance_z = 0;
 
 //**************FINAL VALUES**************
 float x_cog_final = 0;
@@ -125,29 +131,38 @@ void setup() {
 
   lcd.setCursor(0,0);
 
-  if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
-    lcd.print("GYRO FAIL");
-    while (1);
-  }
+ // if (!IMU.begin()) {
+ //   Serial.println("Failed to initialize IMU!");
+  //  lcd.print("GYRO FAIL");
+   // while (1);
+  //}
 
-  if(!SD.begin(chipselect)){
-    Serial.println("SD initialization failed");
-    lcd.print("SD CARD FAIL");
-    while(1);
-  }
+  //if(!SD.begin(chipselect)){
+  //  Serial.println("SD initialization failed");
+  //  lcd.print("SD CARD FAIL");
+  //  while(1);
+  //}
 
   Serial.println("Setup Complete");
   lcd.print("SETUP COMPLETE");
   delay(1000);
+  lcd.clear();
 
   displayMainMenu();  // Display the main menu on startup
 }
 
 void loop() {
   char key = customkeypad.getKey(); // Continuously read key press from the keypad
+  //int incomingByte;
+ // if(Serial.available()){
+  //  incomingByte = Serial.read();
+  //}
+  //else{
+ //   incomingByte = -1;
+  //}
 
   if (key != NO_KEY) { // If a key is pressed
+    Serial.print(key);
     if (menuState == 0) {
       handleMainMenu(key); // Handle main menu key presses
     } 
@@ -219,13 +234,13 @@ void loop() {
   }
 
   if(menuState == 11){
-    float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 1);
+    float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0], 1);
     live_cg_update(xCG_Diff, 1);
     delay(500);
   }
 
   if(menuState == 12){
-    float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 2);
+    float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0], 3);
     live_cg_update(zCG_Diff, 2);
     delay(500);
   }
@@ -267,8 +282,12 @@ void handleCenterOfGravityMenu(char key) {
 
 void handleInertiaMenu(char key) {
   if (key == '#') {
-    displayMainMenu(); // Go back to main menu
-    menuState = 0;     // Reset to main menu state
+    displayCenterOfGravityMenu();
+    menuState = 1;
+
+    x_oscillated=false;
+    y_oscillated=false;
+    z_oscillated=false;
   } else if (key == '1') {
     inertia_x_screen(); // Show Inertia XY screen
     menuState = 6;
@@ -306,8 +325,10 @@ void handleCoGScreen2Menu(char key) {
     } else {
       lcd.clear();
       lcd.print("Value saved");
+      x_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), x_cog_coord.toFloat(), 1);
+      y_cog_final = CalculateCG(scale3.get_units(),scale2.get_units(), scale1.get_units(), 0,2); //Might need to change this
       delay(1000);
-      float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 2);
+      float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0], 1);
       live_cg_update(xCG_Diff, 1); // Go to the next screen for further actions
       menuState = 11; // Move to the next menu state
     }
@@ -341,8 +362,9 @@ void handleCoGScreen2Z(char key) {
     } else {
       lcd.clear();
       lcd.print("Value saved");
+      z_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), z_cog_coord.toFloat(), 3);
       delay(1000);
-      float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 2);
+      float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0],3);
       live_cg_update(zCG_Diff,2); // Go to the next screen
       menuState = 12; // Move to the next menu state
     }
@@ -473,6 +495,7 @@ void handleInertiaXOscillate(char key) {
     menuState = 6;
   } else if (key == '1') { // Save the X oscillation
     x_oscillated = true;
+    x_mmi_final = CalculateMMI(xPeriod, 0);
     lcd.clear();
     lcd.print("X Oscillation Saved");
     delay(1000);
@@ -493,6 +516,7 @@ void handleInertiaYOscillate(char key) {
     menuState = 6;
   } else if (key == '1') { // Save the Y oscillation
     y_oscillated = true;
+    y_mmi_final = CalculateMMI(yPeriod, 0);
     lcd.clear();
     lcd.print("Y Oscillation Saved");
     delay(1000);
@@ -513,6 +537,7 @@ void handleInertiaZOscillate(char key) {
     menuState = 13;
   } else if (key == '1') { // Save the Z oscillation
     z_oscillated = true;
+    z_mmi_final = CalculateMMI(zPeriod, 0);
     lcd.clear();
     lcd.print("Z Oscillation Saved");
     delay(1000);
@@ -552,7 +577,7 @@ void displayMainMenu() {
   lcd.setCursor(7, 0);
   lcd.print("Menu");
   lcd.setCursor(0, 1);
-  lcd.print("1->Center of Gravity"); // Only show Center of Gravity option
+  lcd.print("1:Center of Gravity"); // Only show Center of Gravity option
 }
 
 void displayCenterOfGravityMenu() {
@@ -572,7 +597,7 @@ void displayInertiaMenu() {
   lcd.setCursor(6, 0);
   lcd.print("Inertia");
   lcd.setCursor(0, 1);
-  lcd.print("set orientation");
+  lcd.print("Set Orientation");
   lcd.setCursor(0, 2);
 
   if(!x_oscillated){
@@ -597,7 +622,7 @@ void cog_screen_2x() {
   lcd.setCursor(1, 0);
   lcd.print("Center Of Gravity");
   lcd.setCursor(0, 1);
-  lcd.print("x coordinate of nose");
+  lcd.print("X Coordinate of Nose");
   lcd.setCursor(0, 2);
   lcd.print(x_cog_coord);       // Print current input
   lcd.setCursor(18, 2);
@@ -614,7 +639,7 @@ void cog_screen_2z() {
   lcd.setCursor(1, 0);
   lcd.print("Center Of Gravity");
   lcd.setCursor(0, 1);
-  lcd.print("z coordinate of nose");
+  lcd.print("Z Coordinate of Nose");
   lcd.setCursor(0, 2);
   lcd.print(z_cog_coord);       // Print current input
   lcd.setCursor(18, 2);
@@ -632,9 +657,9 @@ void cog_screen_3x() {
   lcd.print(x_cog_coord);   // Display the stored x_COG value
   lcd.setCursor(0, 2);
   if (z_cog_coord.length() == 0) {
-    lcd.print("1=zy CoG");
+    lcd.print("1:Z CoG");
   } else {
-    lcd.print("1=inertia");
+    lcd.print("1:Inertia");
   }
   lcd.setCursor(0, 3);
   lcd.print("Press # to go back");
@@ -649,9 +674,9 @@ void cog_screen_3z() {
   lcd.print(z_cog_coord);   // Display the stored z_COG value
   lcd.setCursor(0, 2);
   if (x_cog_coord.length() == 0) {
-    lcd.print("1=xy CoG");
+    lcd.print("1:X CoG");
   } else {
-    lcd.print("1=inertia");
+    lcd.print("1:Inertia");
   }
   lcd.setCursor(0, 3);
   lcd.print("Press # to go back");
@@ -666,10 +691,10 @@ void live_cg_update(float differenceVal, int axis){
   lcd.print("Center of Gravity");
   lcd.setCursor(0,1);
   if(axis == 1){
-    lcd.print("move x: ");
+    lcd.print("Move x: ");
   }
   else{
-    lcd.print("move: z ");
+    lcd.print("Move z: ");
   }
   lcd.print(differenceVal,2);
   lcd.setCursor(0, 2);
@@ -772,7 +797,7 @@ void displayResultsScreen() {
 
   //Print format and units
   lcd.setCursor(0, 1);
-  lcd.print("Format X,Y,Z (lb in^2)");
+  lcd.print("Form=X,Y,Z lb in^2");
   
   //Print in proper format
   lcd.setCursor(0, 2);
@@ -843,7 +868,7 @@ bool PerformOscillation(int direction){
         inertia_x_oscillate();
       }
       else if(direction == 2){
-        yPeriod = get_period(filtered);
+        yPeriod = 1674;//get_period(filtered);
         inertia_y_oscillate();
       }
       else if(direction == 3){
@@ -930,34 +955,28 @@ void moving_avg_filter(float values[], int size, float filtered[]){
   }
 }
 
-float CalculateMMI(){
+float CalculateMMI(float period, float cog_distance){
   return 0;
 }
 
-float CalculateCG(float frontWeight, float leftWeight, float rightWeight, int dir){
+float CalculateCG(float frontWeight, float leftWeight, float rightWeight, float referencePoint, int dir){
 
     //total weight of the model - total weight of the platform : calibration
     float modelWeight = (frontWeight+leftWeight+rightWeight)-(platformFrontWeight+platformLeftWeight+platformRightWeight);
+    float cg = 0;
 
-    //xcg = (50*frontScalePos[0]+leftScalePos[0]*50+rightScalePos[0]*50)/(150)
-    float xcg = ((frontWeight-platformFrontWeight)*frontScalePos[0]+(leftWeight-platformLeftWeight)*leftScalePos[0]+(rightWeight-platformRightWeight)*rightScalePos[0])/(modelWeight);
-    //ycg = (50*frontScalePos[1]+leftScalePos[1]*50+rightScalePos[1]*50)/(150)
-    //float ycg = ((frontWeight-platformFrontWeight)*frontScalePos[1]+(leftWeight-platformLeftWeight)*leftScalePos[1]+(rightWeight-platformRightWeight)*rightScalePos[1])/(modelWeight);
-    
-    
-    //adjustment values of where the model needs to be
-    //MAYBE make these output parameters
-    //float adjustmentX = xcg - centerOfPlatform[0];
-    //float newNoseX = nosePos[0] - adjustmentX;
-    //float adjustmentY = ycg - centerOfPlatform[1];
-    //float newNoseY = nosePos[1] - adjustmentY;
+    if(dir == 1){ //x
+      cg = ((frontWeight-platformFrontWeight)*frontScalePos[0]+(leftWeight-platformLeftWeight)*leftScalePos[0]+(rightWeight-platformRightWeight)*rightScalePos[0])/(modelWeight);
+    }
+    else if(dir == 2){ //y
+      cg = ((frontWeight-platformFrontWeight)*frontScalePos[1]+(leftWeight-platformLeftWeight)*leftScalePos[1]+(rightWeight-platformRightWeight)*rightScalePos[1])/(modelWeight);
+    }
+    else if(dir == 3){ //z
+      cg = ((frontWeight-platformFrontWeight)*frontScalePos[0]+(leftWeight-platformLeftWeight)*leftScalePos[0]+(rightWeight-platformRightWeight)*rightScalePos[0])/(modelWeight);
+    }
 
-    return xcg - centerOfPlatform[0];
+    return cg - referencePoint;
 
-}
-
-float CalculateCG_Reference(){
-  return 0;
 }
 
 void SaveToSDCard(){

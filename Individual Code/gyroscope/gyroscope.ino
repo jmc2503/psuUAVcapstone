@@ -23,6 +23,11 @@ float buffer[5];
 float bufferNorm[5];
 bool wasPositive = false;
 
+float prevX = 0;
+float prevY = 0;
+float prevZ = 0;
+float alpha = 0.1;
+
 void setup() {
   Serial.begin(9600);
   while (!Serial);
@@ -39,21 +44,56 @@ void setup() {
   Serial.println();
   Serial.println("Gyroscope in degrees/second");
   Serial.println("X\tY\tZ");
+
+  switch (sox.getAccelDataRate()) {
+  case LSM6DS_RATE_SHUTDOWN:
+    Serial.println("0 Hz");
+    break;
+  case LSM6DS_RATE_12_5_HZ:
+    Serial.println("12.5 Hz");
+    break;
+  case LSM6DS_RATE_26_HZ:
+    Serial.println("26 Hz");
+    break;
+  case LSM6DS_RATE_52_HZ:
+    Serial.println("52 Hz");
+    break;
+  case LSM6DS_RATE_104_HZ:
+    Serial.println("104 Hz");
+    break;
+  case LSM6DS_RATE_208_HZ:
+    Serial.println("208 Hz");
+    break;
+  case LSM6DS_RATE_416_HZ:
+    Serial.println("416 Hz");
+    break;
+  case LSM6DS_RATE_833_HZ:
+    Serial.println("833 Hz");
+    break;
+  case LSM6DS_RATE_1_66K_HZ:
+    Serial.println("1.66 KHz");
+    break;
+  case LSM6DS_RATE_3_33K_HZ:
+    Serial.println("3.33 KHz");
+    break;
+  case LSM6DS_RATE_6_66K_HZ:
+    Serial.println("6.66 KHz");
+    break;
+  }
 }
 
 void loop() {
   float x, y, z;
-  unsigned long currTime = millis();
 
   if (IMU.gyroscopeAvailable()) {
     IMU.readGyroscope(x, y, z);
 
-    //ANGULAR VELOCITY
-    // Serial.println(x);
-    // Serial.print('\t');
-    Serial.println(y);
-    // Serial.print('\t');
-    // Serial.println(z);
+    Serial.print(x);
+    Serial.print('\t');
+    Serial.print(y);
+    Serial.print('\t');
+    Serial.print(z);
+    Serial.println();
 
     //DETECT PEAK and Filtering
     // float totalSum = shiftArrayRight(buffer, bufferSize, x);
@@ -71,6 +111,8 @@ void loop() {
     // Serial.print(period);
     // Serial.print('\t');
     // Serial.println(-3);
+
+    delay(50);
     
   }
 }
