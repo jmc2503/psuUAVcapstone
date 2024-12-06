@@ -2,14 +2,15 @@
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 #include <string.h> // For strcpy and strncpy
-#include <Arduino_LSM6DSOX.h>
+#include <Adafruit_LSM6DSOX.h>
 #include <HX711.h>
 #include <SD.h>
 
-//****************SCREEN VARIABLES*******************
+//****************SENSOR VARIABLES*******************
 
 // Initialize the LCD object for a 20x4 display with I2C address 0x27
 LiquidCrystal_I2C lcd(0x27, 20, 4);
+Adafruit_LSM6DSOX sox;
 
 //************KEYPAD SETUP****************************
 const byte ROWS = 4; // Four rows
@@ -50,20 +51,18 @@ HX711 scale1;
 HX711 scale2;
 HX711 scale3;
 
-float calibration_factor1 = 245100.00;
-float calibration_factor2 = 228800.00;
-float calibration_factor3 = 254700.00;
+float calibration_factor1 = 245100.00; //Calibration factor for scale 1
+float calibration_factor2 = 228800.00; //Calibration factor for scale 2
+float calibration_factor3 = 254700.00; //Calibration factor for scale 3
 
-float platformFrontWeight = 2.290; //brown, scale3 ()
-float platformLeftWeight = 2.540; //brown left, scale 2 (23 9/16, )
-float platformRightWeight = 2.458; //green, right scale 1 (23 9/16, )
+float platform_front_weight = 2.290; //brown, scale3 ()
+float platform_left_weight = 2.540; //brown left, scale 2 (23 9/16, )
+float platform_right_weight = 2.458; //green, right scale 1 (23 9/16, )
 
-float frontScalePos[2] = {12.5, 7.5};
-float leftScalePos[2] = {23.5625, 0.5};
-float rightScalePos[2] = {23.5625, 13.5};
-float centerOfPlatform[2] = {20.074, 6.976};
-float nosePosX = 0;
-
+float front_scale_pos[2] = {12.5, 7.5};
+float left_scale_pos[2] = {23.5625, 0.5};
+float right_scale_pos[2] = {23.5625, 13.5};
+float cg_platform[2] = {20.074, 6.976};
 
 //************INERTIA VARIABLES**************
 
@@ -72,22 +71,21 @@ const int sampleRate = 100;
 const int sampleTime = 1000 / sampleRate;
 const int arraySize = duration * sampleRate;
 
-float sensorData[arraySize]; // Readings from the gyroscope
-unsigned long timeData[arraySize]; // What time those readings occur for calculating period
+float sensor_data[arraySize]; // Readings from the gyroscope
+unsigned long time_data[arraySize]; // What time those readings occur for calculating period
 int sample_index = 0;
 bool isRecording = false;
-bool oscillationDone = false;
 unsigned long startTime;
 
-float xPeriod = 0;
-float yPeriod = 0;
-float zPeriod = 0;
+float x_period = 0; //Period calculated from gyro readings in X
+float y_period = 0; //Period calculated from gyro readings in Y
+float z_period = 0; //Period calculated from gyro readings in Z
 
 //**************INERTIA EQUATION**************
-float platform_period = 0;
-float platform_cog_distance = 0;
-float uav_cog_distance_x = 0;
-float uav_cog_distance_z = 0;
+float platform_period = 0; //Period of platform with nothing on it
+float platform_cog_distance = 0; //Distance from platform cog to rotation point
+float uav_cog_distance_x = 0; //Calculated distance from uav cog to rotation point in x orientation
+float uav_cog_distance_z = 0; //Calculated distance from uav cog to rotation point in z orientation
 
 //**************FINAL VALUES**************
 float x_cog_final = 0;
@@ -100,7 +98,7 @@ float z_mmi_final = 0;
 
 //**************SD CARD**************
 
-File outputFile;
+File output_file;
 const int chipselect = BUILTIN_SDCARD;
 
 void setup() {
@@ -131,17 +129,20 @@ void setup() {
 
   lcd.setCursor(0,0);
 
- // if (!IMU.begin()) {
- //   Serial.println("Failed to initialize IMU!");
-  //  lcd.print("GYRO FAIL");
-   // while (1);
-  //}
+  
+  if (!sox.begin_I2C()) {
+    Serial.println("Failed to find LSM6DSOX chip");
+    lcd.print("GYRO FAIL");
+    while (1);
+  }
 
   //if(!SD.begin(chipselect)){
   //  Serial.println("SD initialization failed");
   //  lcd.print("SD CARD FAIL");
   //  while(1);
   //}
+
+  sox.setGyroDataRate(LSM6DS_RATE_3_33K_HZ);
 
   Serial.println("Setup Complete");
   lcd.print("SETUP COMPLETE");
@@ -216,31 +217,31 @@ void loop() {
 
   //Inertia Loops
   if(menuState == 8){ //X INERTIA
-    if(!oscillationDone){
+    if(!x_oscillated){
       PerformOscillation(1);
     }
   }
 
   if(menuState == 9){ //Y INERTIA
-    if(!oscillationDone){
+    if(!y_oscillated){
       PerformOscillation(2);
     }
   }
 
   if(menuState == 10){ //Z INERTIA
-    if(!oscillationDone){
+    if(!z_oscillated){
       PerformOscillation(3);
     }
   }
 
   if(menuState == 11){
-    float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0], 1);
+    float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0], 1);
     live_cg_update(xCG_Diff, 1);
     delay(500);
   }
 
   if(menuState == 12){
-    float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0], 3);
+    float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0], 3);
     live_cg_update(zCG_Diff, 2);
     delay(500);
   }
@@ -328,7 +329,7 @@ void handleCoGScreen2Menu(char key) {
       x_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), x_cog_coord.toFloat(), 1);
       y_cog_final = CalculateCG(scale3.get_units(),scale2.get_units(), scale1.get_units(), 0,2); //Might need to change this
       delay(1000);
-      float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0], 1);
+      float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0], 1);
       live_cg_update(xCG_Diff, 1); // Go to the next screen for further actions
       menuState = 11; // Move to the next menu state
     }
@@ -364,7 +365,7 @@ void handleCoGScreen2Z(char key) {
       lcd.print("Value saved");
       z_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), z_cog_coord.toFloat(), 3);
       delay(1000);
-      float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), centerOfPlatform[0],3);
+      float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0],3);
       live_cg_update(zCG_Diff,2); // Go to the next screen
       menuState = 12; // Move to the next menu state
     }
@@ -490,12 +491,11 @@ void handleInertiaZScreen(char key) {
 
 void handleInertiaXOscillate(char key) {
   if (key == '#') {
-    inertia_x_screen(); // Go back to Inertia XY screen
-    oscillationDone = false;
+    inertia_x_screen(); // Go back to Inertia X screen
+    x_oscillated = false;
     menuState = 6;
   } else if (key == '1') { // Save the X oscillation
-    x_oscillated = true;
-    x_mmi_final = CalculateMMI(xPeriod, 0);
+    x_mmi_final = CalculateMMI(x_period, 0);
     lcd.clear();
     lcd.print("X Oscillation Saved");
     delay(1000);
@@ -506,17 +506,16 @@ void handleInertiaXOscillate(char key) {
       displayResultsScreen(); // Show results for Inertia XY
       menuState = 14; // Transition to results screen state
     }
-    oscillationDone = false;
   }
 }
 
 void handleInertiaYOscillate(char key) {
   if (key == '#') {
     inertia_y_screen(); // Go back to Inertia XY screen
+    y_oscillated = false;
     menuState = 6;
   } else if (key == '1') { // Save the Y oscillation
-    y_oscillated = true;
-    y_mmi_final = CalculateMMI(yPeriod, 0);
+    y_mmi_final = CalculateMMI(y_period, 0);
     lcd.clear();
     lcd.print("Y Oscillation Saved");
     delay(1000);
@@ -527,17 +526,16 @@ void handleInertiaYOscillate(char key) {
       displayResultsScreen(); // Show results for Inertia XY
       menuState = 14; // Transition to results screen state
     }
-    oscillationDone = false;
   }
 }
 
 void handleInertiaZOscillate(char key) {
   if (key == '#') {
     inertia_z_screen(); // Go back to Inertia YZ screen
+    z_oscillated = false;
     menuState = 13;
   } else if (key == '1') { // Save the Z oscillation
-    z_oscillated = true;
-    z_mmi_final = CalculateMMI(zPeriod, 0);
+    z_mmi_final = CalculateMMI(z_period, 0);
     lcd.clear();
     lcd.print("Z Oscillation Saved");
     delay(1000);
@@ -548,7 +546,6 @@ void handleInertiaZOscillate(char key) {
       displayResultsScreen(); // Show results for Inertia YZ
       menuState = 14; // Transition to results screen state
     }
-    oscillationDone = false;
   }
 }
 
@@ -740,8 +737,8 @@ void inertia_x_oscillate() {
   lcd.print("Inertia in X");
   lcd.setCursor(0, 1);
   
-  if(xPeriod > 0){
-    lcd.print(xPeriod);
+  if(x_period > 0){
+    lcd.print(x_period);
   }
   else{
     lcd.print("CALCULATING");
@@ -758,8 +755,8 @@ void inertia_y_oscillate() {
   lcd.print("Inertia in Y");
   lcd.setCursor(0, 1);
   
-  if(yPeriod > 0){
-    lcd.print(yPeriod);
+  if(y_period > 0){
+    lcd.print(y_period);
   }
   else{
     lcd.print("CALCULATING");
@@ -776,8 +773,8 @@ void inertia_z_oscillate() {
   lcd.print("Inertia in Z");
   lcd.setCursor(0, 1);
   
-  if(zPeriod > 0){
-    lcd.print(zPeriod);
+  if(z_period > 0){
+    lcd.print(z_period);
   }
   else{
     lcd.print("CALCULATING");
@@ -818,7 +815,9 @@ void displayResultsScreen() {
 //  3: z-axis oscillation
 bool PerformOscillation(int direction){
   //Initialize gyroscope axis readings
-  float x, y, z;
+  sensors_event_t gyro;
+  sensors_event_t accel;
+  sensors_event_t temp;
 
   //Initialize Reading Loop
   if (!isRecording) {
@@ -831,22 +830,22 @@ bool PerformOscillation(int direction){
   //Data Collection and Period Calculation
   if(isRecording){
     if(millis() - startTime < duration * 1000){ //Collect data from 
-      IMU.readGyroscope(x, y, z); //get values from readGyroscope
+      sox.getEvent(&accel, &gyro, &temp);
 
       float data = 0;
       if(direction == 1){
-        data = x;
+        data = gyro.gyro.x;
       }
       else if(direction == 2){
-        data = x;
+        data = gyro.gyro.y;
       }
       else if(direction == 3){
-        data = y;
+        data = gyro.gyro.x;
       }
 
       //Save data and time for period calculation
-      sensorData[sample_index] = data;
-      timeData[sample_index] = millis();
+      sensor_data[sample_index] = data;
+      time_data[sample_index] = millis();
       sample_index++;
 
       //Fix sample rate
@@ -858,31 +857,37 @@ bool PerformOscillation(int direction){
       //Send data through averaging
       float filtered[arraySize];
       for (int i = 0; i < arraySize; i++) {
-        filtered[i] = sensorData[i];
+        filtered[i] = sensor_data[i];
       }
-      moving_avg_filter(sensorData, 5, filtered);
+      moving_avg_filter(sensor_data, 5, filtered);
 
       //Get period and and print to screen
       if(direction == 1){
-        xPeriod = get_period(filtered);
+        x_period = get_period(filtered);
+        x_oscillated = true;
         inertia_x_oscillate();
+
+        Serial.print("period: ");
+        Serial.println(x_period);
       }
       else if(direction == 2){
-        yPeriod = 1674;//get_period(filtered);
+        y_period = get_period(filtered);
+        y_oscillated = true;
         inertia_y_oscillate();
+
+        Serial.print("period: ");
+        Serial.println(y_period);
       }
       else if(direction == 3){
-        zPeriod = get_period(filtered);
+        z_period = get_period(filtered);
+        z_oscillated = true;
         inertia_z_oscillate();
+        
+        Serial.print("period: ");
+        Serial.println(z_period);
       }
       
-      //Debug Prints
-      Serial.print("ok here is the period: ");
-      Serial.println(xPeriod);
-      Serial.println("\n hoorary!!!");
       
-      //Oscillation is done
-      oscillationDone = true;
     }
   }
 
@@ -906,11 +911,11 @@ float get_period(float values[]){
     
     if(detect_peak(values, i, peakSize)){
       if(foundFirstPeak == false){
-        lastTime = timeData[i];
+        lastTime = time_data[i];
         foundFirstPeak = true;
       }
       else{
-        unsigned long currTime = timeData[i];
+        unsigned long currTime = time_data[i];
         
         Serial.println(currTime - lastTime);
         
@@ -962,17 +967,17 @@ float CalculateMMI(float period, float cog_distance){
 float CalculateCG(float frontWeight, float leftWeight, float rightWeight, float referencePoint, int dir){
 
     //total weight of the model - total weight of the platform : calibration
-    float modelWeight = (frontWeight+leftWeight+rightWeight)-(platformFrontWeight+platformLeftWeight+platformRightWeight);
+    float modelWeight = (frontWeight+leftWeight+rightWeight)-(platform_front_weight+platform_left_weight+platform_right_weight);
     float cg = 0;
 
     if(dir == 1){ //x
-      cg = ((frontWeight-platformFrontWeight)*frontScalePos[0]+(leftWeight-platformLeftWeight)*leftScalePos[0]+(rightWeight-platformRightWeight)*rightScalePos[0])/(modelWeight);
+      cg = ((frontWeight-platform_front_weight)*front_scale_pos[0]+(leftWeight-platform_left_weight)*left_scale_pos[0]+(rightWeight-platform_right_weight)*right_scale_pos[0])/(modelWeight);
     }
     else if(dir == 2){ //y
-      cg = ((frontWeight-platformFrontWeight)*frontScalePos[1]+(leftWeight-platformLeftWeight)*leftScalePos[1]+(rightWeight-platformRightWeight)*rightScalePos[1])/(modelWeight);
+      cg = ((frontWeight-platform_front_weight)*front_scale_pos[1]+(leftWeight-platform_left_weight)*left_scale_pos[1]+(rightWeight-platform_right_weight)*right_scale_pos[1])/(modelWeight);
     }
     else if(dir == 3){ //z
-      cg = ((frontWeight-platformFrontWeight)*frontScalePos[0]+(leftWeight-platformLeftWeight)*leftScalePos[0]+(rightWeight-platformRightWeight)*rightScalePos[0])/(modelWeight);
+      cg = ((frontWeight-platform_front_weight)*front_scale_pos[0]+(leftWeight-platform_left_weight)*left_scale_pos[0]+(rightWeight-platform_right_weight)*right_scale_pos[0])/(modelWeight);
     }
 
     return cg - referencePoint;
@@ -980,26 +985,26 @@ float CalculateCG(float frontWeight, float leftWeight, float rightWeight, float 
 }
 
 void SaveToSDCard(){
-  outputFile = SD.open("output.txt", FILE_WRITE);
+  output_file = SD.open("output.txt", FILE_WRITE);
 
-  if(outputFile){
+  if(output_file){
     //PRINT COG
-    outputFile.print(x_cog_final);
-    outputFile.print(",");
-    outputFile.print(y_cog_final);
-    outputFile.print(",");
-    outputFile.print(z_cog_final);
+    output_file.print(x_cog_final);
+    output_file.print(",");
+    output_file.print(y_cog_final);
+    output_file.print(",");
+    output_file.print(z_cog_final);
 
-    outputFile.println();
+    output_file.println();
 
     //PRINT MMI
-    outputFile.print(x_mmi_final);
-    outputFile.print(",");
-    outputFile.print(y_mmi_final);
-    outputFile.print(",");
-    outputFile.print(z_mmi_final);
+    output_file.print(x_mmi_final);
+    output_file.print(",");
+    output_file.print(y_mmi_final);
+    output_file.print(",");
+    output_file.print(z_mmi_final);
 
   }
 
-  outputFile.close();
+  output_file.close();
 }
