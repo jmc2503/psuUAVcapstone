@@ -83,10 +83,18 @@ float z_period = 0; //Period calculated from gyro readings in Z
 
 //**************INERTIA EQUATION**************
 #define g 386.08858267717 //gravity in in/s^2
-float platform_period = 0; //Period of platform with nothing on it
-float platform_cog_distance = 0; //Distance from platform cog to rotation point
+float platform_period_xz = 1.562; //Period of platform with nothing on it
+float platform_period_y = 0;
+
+float platform_top_distance_xz = 17.875; //Distance from top of platform to rotation point for xz intertia
+float platform_top_distance_y = 0; //Distance from top of platform to rotation point for y inertia
+
+float platform_cog_distance_xz = 18.375; //Distance from platform cog to rotation point in
+float platform_cog_distance_y = 0;
+
 float platform_weight = 0; //Platform weigth in lbs
 float uav_cog_distance_x = 0; //Calculated distance from uav cog to rotation point in x orientation
+float uav_cog_distance_y = 0; //Calculated distance from uav cog to rotation point in y direction
 float uav_cog_distance_z = 0; //Calculated distance from uav cog to rotation point in z orientation
 float model_weight_final = 0; //Calculated model weight by load cells during CoG calculation
 
@@ -328,7 +336,7 @@ void handleCoGScreen2Menu(char key) {
       lcd.print("Value saved"); //Nose position stored in x_cog_coord
       x_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), x_cog_coord.toFloat(), 1); //CoG of UAV relative to the position entered in X
       y_cog_final = CalculateCG(scale3.get_units(),scale2.get_units(), scale1.get_units(), 7,2); //CoG of UAV relative to the center axis in Y
-      uav_cog_distance_z = platform_distance - x_cog_final;
+      uav_cog_distance_z = platform_top_distance_xz - x_cog_final;
       model_weight_final = GetFinalModelWeight(scale3.get_units(), scale2.get_units(), scale1.get_units());
       delay(1000);
 
@@ -367,7 +375,8 @@ void handleCoGScreen2Z(char key) {
       lcd.clear();
       lcd.print("Value saved"); //Nose position in Z stored in z_cog_coord
       z_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), z_cog_coord.toFloat(), 3); //CoG of UAV relative to the position entered in Z
-      uav_cog_distance_x = platform_distance - z_cog_final;
+      uav_cog_distance_x = platform_top_distance_xz - z_cog_final;
+      uav_cog_distance_y = platform_top_distance_y - z_cog_final;
       delay(1000);
 
       float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0],3);
@@ -500,7 +509,7 @@ void handleInertiaXOscillate(char key) {
     x_oscillated = false; //reset oscillation
     menuState = 6;
   } else if (key == '1') { // Save the X oscillation
-    x_mmi_final = CalculateMMI(x_period, uav_cog_distance_x);
+    x_mmi_final = CalculateMMI(x_period, uav_cog_distance_x, 1);
     lcd.clear();
     lcd.print("X Oscillation Saved");
     delay(1000);
@@ -520,7 +529,7 @@ void handleInertiaYOscillate(char key) {
     y_oscillated = false; //reset oscillation
     menuState = 6;
   } else if (key == '1') { // Save the Y oscillation
-    y_mmi_final = CalculateMMI(y_period, uav_cog_distance_x);
+    y_mmi_final = CalculateMMI(y_period, uav_cog_distance_y, 2);
     lcd.clear();
     lcd.print("Y Oscillation Saved");
     delay(1000);
@@ -540,7 +549,7 @@ void handleInertiaZOscillate(char key) {
     z_oscillated = false; //reset oscillation
     menuState = 13;
   } else if (key == '1') { // Save the Z oscillation
-    z_mmi_final = CalculateMMI(z_period, uav_cog_distance_z);
+    z_mmi_final = CalculateMMI(z_period, uav_cog_distance_z, 3);
     lcd.clear();
     lcd.print("Z Oscillation Saved");
     delay(1000);
@@ -976,9 +985,26 @@ void moving_avg_filter(float values[], int size, float filtered[]){
   }
 }
 
-float CalculateMMI(float period, float cog_distance){
-  float lo = platform_cog_distance - cog_distance;
-  float pi_cons = 4 * pow(PI, 2);
+//axis:
+//1 -> x
+//2 -> y
+//3 -> z
+float CalculateMMI(float period, float lo, int axis){
+
+  float platform_cog_distance = 0;
+  float platform_period = 0;
+
+  //Get the proper distance from platform cog to rotation point
+  if(axis == 1 || axis == 3){
+    platform_cog_distance = platform_cog_distance_xz;
+    platform_period = platform_period_xz;
+  }
+  else if(axis == 2){
+    platform_cog_distance = platform_cog_distance_y;
+    platform_period = platform_period_y;
+  }
+
+  float pi_cons = 4 * pow(PI, 2); //constant in equation
 
   float equation = model_weight_final*lo*((pow(period, 2)/pi_cons) - (lo/g)) + ((platform_weight * platform_cog_distance)/pi_cons)*(pow(period, 2) - pow(platform_period, 2));
 
