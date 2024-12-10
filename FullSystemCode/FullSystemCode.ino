@@ -171,7 +171,6 @@ void loop() {
   char key = customkeypad.getKey();  // Continuously read key press from the keypad
 
   if (key != NO_KEY) {  // If a key is pressed
-    Serial.print(key);
     if (menuState == 0) {
       handleMainMenu(key);  // Handle main menu key presses
     } else if (menuState == 1) {
@@ -324,9 +323,6 @@ void handleCoGScreen2Menu(char key) {
       y_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), 7, 2);                      //CoG of UAV relative to the center axis in Y
       uav_cog_distance_z = platform_top_distance_xz - x_cog_final;
       model_weight_final = GetFinalModelWeight(scale3.get_units(), scale2.get_units(), scale1.get_units());
-      Serial.println(x_cog_final);
-      Serial.println(y_cog_final);
-      Serial.println(uav_cog_distance_z);
       delay(1000);
 
       float xCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0], 1);  //For live update
@@ -366,9 +362,6 @@ void handleCoGScreen2Z(char key) {
       z_cog_final = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), z_cog_coord.toFloat(), 3);  //CoG of UAV relative to the position entered in Z
       uav_cog_distance_x = platform_top_distance_xz - z_cog_final;
       uav_cog_distance_y = platform_top_distance_y - z_cog_final;
-      Serial.println(uav_cog_distance_x);
-      Serial.println(uav_cog_distance_y);
-      Serial.println(z_cog_final);
       delay(1000);
 
       float zCG_Diff = CalculateCG(scale3.get_units(), scale2.get_units(), scale1.get_units(), cg_platform[0], 3);
@@ -858,7 +851,6 @@ void PerformOscillation(int direction) {
 
   //Initialize Reading Loop
   if (!isRecording) {
-    Serial.println("Recording started!!!");
     isRecording = true;
     startTime = millis();  // Record the starting time
     sample_index = 0;      // Reset index for new recording
@@ -901,22 +893,15 @@ void PerformOscillation(int direction) {
         x_oscillated = true;
         inertia_x_oscillate();
 
-        Serial.print("period: ");
-        Serial.println(x_period);
       } else if (direction == 2) {
         y_period = get_period(filtered) / 1000;
         y_oscillated = true;
         inertia_y_oscillate();
 
-        Serial.print("period: ");
-        Serial.println(y_period);
       } else if (direction == 3) {
         z_period = get_period(filtered) / 1000;
         z_oscillated = true;
         inertia_z_oscillate();
-
-        Serial.print("period: ");
-        Serial.println(z_period);
       }
     }
   }
@@ -941,7 +926,6 @@ float get_period(float values[]) {
       } else {
         unsigned long currTime = time_data[i];
 
-        Serial.println(currTime - lastTime);
 
         periodSum += currTime - lastTime;
         numPeriods++;  //calculate number of periods to do an average

@@ -32,6 +32,7 @@
 */
 
 #include "HX711.h"
+
 #define DOUT1 18
 #define CLK1 19
 
@@ -44,6 +45,7 @@
 HX711 scale1;
 HX711 scale2;
 HX711 scale3;
+
 
 //expected: 25.7, actual: 25.38
 //expected: 35.7, actual: 35.27
@@ -111,6 +113,8 @@ void setup() {
   Serial.println(zero_factor1);
   Serial.println(zero_factor2);
   Serial.println(zero_factor3);
+
+  delay(4000);
 
 }
 
