@@ -220,3 +220,4 @@ The Z CoG is calculated similar to the X.
 1. [Load Cell Amps (HX711)](https://github.com/bogde/HX711)
 2. [Liquid Crystal I2C](https://github.com/johnrickman/LiquidCrystal_I2C)
 3. [Adafruit LSM6SOX](https://github.com/adafruit/Adafruit_LSM6DS/tree/master)
+4. [Teensy Setup for Arduino IDE](https://www.pjrc.com/teensy/td_download.html)
