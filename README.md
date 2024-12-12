@@ -5,6 +5,15 @@
     2. [Individual Code](#individual-code)
     3. [Python Tests](#python-tests)
 2. [Full System Code Functions](#full-system-code-functions)
+    1. [`setup()`](#void-setup)
+    2. [`loop()`](#void-loop)
+    3. [`PerformOscillation()`](#void-performoscillationint-direction)
+    4. [`get_period()`](#float-get_periodfloat-values)
+    5. [`detect_peak()`](#bool-detect_peakfloat-values-int-centerindex-int-size)
+    6. [`moving_avg_filter()`](#moving-average-filter)
+    7. [`CalculateMMI()`](#float-calculatemmifloat-period-float-lo-int-axis)
+    8. [`CalculateCG()`](#float-calculatecgfloat-frontweight-float-leftweight-float-rightweight-float-referencepoint-int-dir)
+    9. [micro SD output](#micro-sd-card-output)
 ## Library Overview
 The purpose of this library is to automate the UAV Mass Properties Testing Apparatus created for the Fall 2024 Learning Factory Capstone. The code was created to work with the Teensy 4.1 in the Arduino IDE. 
 
@@ -157,7 +166,7 @@ Peak detection occurs by checking the values -*size* and +*size* around the valu
 
 ### `void moving_avg_filter(float values[], int size, float filtered[])`
 #### Description
-This function takes in *values[]* and *size* and fills in the *filtered[]* array with denoised data from *values[]*.
+This function takes in *values[]* and *size* and fills in the *filtered[]* array with denoised data from *values[]*. `PerformOscillation` calls this function in order to avoid detecting periods due to noise.
 
 #### Moving Average Filter
 This function uses a simple sliding window approach. It keeps track of the sum of the values from -*size* to +*size* around the current element and averages them together. It then replaces the current element with that average.
