@@ -176,6 +176,7 @@ This function calculates the MMI for the UAV for each *axis* (x = 1, y = 2, z = 
 #### Equation
 This is the equation used:
 ![MMI Equation](mmi_equation.png)
+
 Many of the variables are written as constants at the top of the script.
 
 ### `float CalculateCG(float frontWeight, float leftWeight, float rightWeight, float referencePoint, int dir)`
@@ -193,6 +194,7 @@ cg = ((frontWeight - platform_front_weight) * front_scale_pos[0] + (leftWeight -
 The micro SD card output is written in the following format as a .txt file:
 
 ![Output File](sample_output.png)
+
 First Line: X CoG, Y CoG, Z Cog
 
 Seconds Line: X MMI, Y MMI, Z MMI
