@@ -14,6 +14,7 @@
     7. [`CalculateMMI()`](#float-calculatemmifloat-period-float-lo-int-axis)
     8. [`CalculateCG()`](#float-calculatecgfloat-frontweight-float-leftweight-float-rightweight-float-referencepoint-int-dir)
     9. [micro SD output](#micro-sd-card-output)
+3. [External Libraries Used](#external-libraries)
 ## Library Overview
 The purpose of this library is to automate the UAV Mass Properties Testing Apparatus created for the Fall 2024 Learning Factory Capstone. The code was created to work with the Teensy 4.1 in the Arduino IDE. 
 
@@ -215,4 +216,7 @@ The Y CoG is calculated as the difference of the Y CoG off the center line runni
 
 The Z CoG is calculated similar to the X.
 
-
+## External Libraries
+1. [Load Cell Amps (HX711)](https://github.com/bogde/HX711)
+2. [Liquid Crystal I2C](https://github.com/johnrickman/LiquidCrystal_I2C)
+3. [Adafruit LSM6SOX](https://github.com/adafruit/Adafruit_LSM6DS/tree/master)
